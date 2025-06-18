@@ -4,7 +4,7 @@ import torchaudio
 import librosa
 import tempfile
 import os
-from transformers import pipeline, AutoFeatureExtractor, AutoModelForAudioClassification
+from transformers import pipeline, AutoProcessor, AutoModelForAudioClassification
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -29,10 +29,10 @@ def load_summarizer():
     return pipeline("summarization", model="facebook/bart-large-cnn", device=0 if device == 'cuda' else -1)
 
 @st.cache_resource
-def load_tag_model():
-    extractor = AutoFeatureExtractor.from_pretrained("mtg/jamendo-tagging")
-    model = AutoModelForAudioClassification.from_pretrained("mtg/jamendo-tagging")
-    return extractor, model
+def load_superb_model():
+    processor = AutoProcessor.from_pretrained("superb/matching")
+    model = AutoModelForAudioClassification.from_pretrained("superb/matching")
+    return processor, model
 
 def extract_audio_features(audio_path):
     y, sr = librosa.load(audio_path, sr=None)
@@ -48,25 +48,20 @@ def extract_audio_features(audio_path):
         "duration_sec": round(duration, 2)
     }
 
-def classify_tags(audio_path, extractor, model):
+def classify_tags(audio_path, processor, model):
     waveform, sample_rate = torchaudio.load(audio_path)
-    inputs = extractor(waveform, sampling_rate=sample_rate, return_tensors="pt")
+    inputs = processor(waveform, sampling_rate=sample_rate, return_tensors="pt")
     with torch.no_grad():
         logits = model(**inputs).logits
-    scores = torch.sigmoid(logits).squeeze().numpy()
+    scores = torch.softmax(logits, dim=1).squeeze().numpy()
     labels = model.config.id2label
     top_tags = [(labels[i], round(float(scores[i]), 3)) for i in scores.argsort()[-5:][::-1]]
     return top_tags
 
 def generate_description(features, tags):
-    genre_tags = [t for t in tags if "genre" in t[0]]
-    mood_tags = [t for t in tags if "mood" in t[0]]
-    genre = genre_tags[0][0] if genre_tags else "Unknown"
-    mood = mood_tags[0][0] if mood_tags else "Neutral"
-
+    tag_summary = ", ".join([tag[0] for tag in tags])
     return f"""🎵 **Track Overview**
-- Genre: {genre}
-- Mood: {mood}
+- Tags: {tag_summary}
 - Tempo: {features['tempo']} BPM
 - Key: {features['key']}
 - Duration: {features['duration_sec']} seconds
@@ -77,7 +72,7 @@ Perfect for:
 - Podcast intros/outros
 - Study/work playlists
 
-📌 **Tags**: #{genre.replace(" ", "")} #{mood.replace(" ", "")} #instrumental
+📌 **Tags**: {' '.join('#' + tag[0].replace(" ", "") for tag in tags)}
 """
 
 audio_file = st.file_uploader("Upload an audio file (.mp3, .ogg, .wav)", type=["mp3", "ogg", "wav"])
@@ -91,12 +86,12 @@ if audio_file:
                 tmp_path = tmp.name
 
             whisper_pipe = load_whisper()
-            extractor, model = load_tag_model()
+            processor, model = load_superb_model()
             transcription = whisper_pipe(tmp_path)
             full_text = " ".join(chunk["text"] for chunk in transcription["chunks"])
             summary = load_summarizer()(full_text, max_length=100, min_length=30, do_sample=False)[0]["summary_text"]
             features = extract_audio_features(tmp_path)
-            tags = classify_tags(tmp_path, extractor, model)
+            tags = classify_tags(tmp_path, processor, model)
             os.remove(tmp_path)
 
         st.subheader("📄 Transcription")
