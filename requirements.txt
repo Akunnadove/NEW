@@ -1,10 +1,22 @@
 streamlit>=1.32
 torch>=2.0
 transformers>=4.40
-librosa>=0.10
+# librosa 0.11.0 has known issues with Python 3.13 related to removed standard library modules (aifc, sunau).
+# It also pulls in an older numba/llvmlite that doesn't support 3.13.
+# Upgrading to a newer librosa (if available and compatible with your code)
+# or allowing uv to find the latest compatible version is key.
+# As of current search results, librosa 0.11.0rc1 (and potentially the final 0.11.0 if released)
+# is marked as supporting Python 3.13, but might require manual installation of `standard-aifc` and `standard-sunau`.
+# For simplicity, let's try allowing uv to find the most recent librosa that supports Py3.13.
+librosa
 soundfile
 numpy>=1.24
 scikit-learn>=1.2,<1.4
 matplotlib>=3.6
 huggingface_hub
 torchaudio
+# Ensure numba and llvmlite are explicitly allowed to be the latest versions
+# as they now support Python 3.13. uv will prioritize these if the constraints
+# from librosa allow it, or it will try to find compatible versions of all.
+numba
+llvmlite
