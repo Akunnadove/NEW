@@ -1,0 +1,10 @@
+Music Description System
+------------------------
+A Streamlit-based app that analyzes uploaded music/audio files and generates detailed descriptions using Hugging Face models.
+
+Features:
+- Genre classification
+- Mood detection
+- Tempo and key analysis
+- Instrument tagging (optional)
+- Summary and formatted outputs for YouTube, Podcasts, and more
