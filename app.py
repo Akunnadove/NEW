@@ -12,18 +12,21 @@ st.markdown("Upload a music/audio file to get tempo, key, duration, and a genera
 def extract_features(audio_path):
     y, sr = librosa.load(audio_path, sr=None)
     tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
+    tempo = round(float(tempo), 2)
+    
     try:
         key = librosa.key.estimate_key(y)
     except:
         key = "Unknown"
-    duration = librosa.get_duration(y=y, sr=sr)
+    
+    duration = round(librosa.get_duration(y=y, sr=sr), 2)
     rms = np.mean(librosa.feature.rms(y=y))
     energy = "high" if rms > 0.04 else "medium" if rms > 0.02 else "low"
 
     return {
-        "tempo": round(tempo, 2),
+        "tempo": tempo,
         "key": key,
-        "duration": round(duration, 2),
+        "duration": duration,
         "energy": energy
     }
 
